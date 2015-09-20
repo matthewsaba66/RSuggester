@@ -1,11 +1,17 @@
 package com.example.matteo.rsuggester;
 
+import android.app.AlertDialog;
+import android.app.Dialog;
+import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
 import android.graphics.Color;
 import android.location.Location;
 import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.StrictMode;
+import android.provider.Settings;
 import android.support.v4.app.FragmentActivity;
 import android.widget.TextView;
 
@@ -45,7 +51,29 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        locationManager = (LocationManager) MapsActivity.this.getSystemService(Context.LOCATION_SERVICE);
+        if( !locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ) {
+            AlertDialog.Builder builder = new AlertDialog.Builder(MapsActivity.this);
+            builder.setTitle("GPS not found");  // GPS not found
+            builder.setMessage("Enable?"); // Want to enable?
+            builder.setPositiveButton("yes", new DialogInterface.OnClickListener() {
+                public void onClick(DialogInterface dialogInterface, int i) {
+                    startActivity(new Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS));
+                    finish();
+                }
+            });
+            builder.setNegativeButton("no", new DialogInterface.OnClickListener() {
+                public void onClick(DialogInterface dialogInterface, int i) {
+                   finish();
+                }
+            });
+            builder.create().show();
+            return;
+        }
+
         setContentView(R.layout.activity_maps);
+
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
@@ -60,10 +88,17 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         map.getUiSettings().setZoomControlsEnabled(true);
         map.setMyLocationEnabled(true);
         LocationManager mLocationManager;
-        Location myLocation = getLastKnownLocation();
-        myPosition = new LatLng(myLocation.getLatitude(), myLocation.getLongitude());
-        String flickrRoutesPath = "app/src/main/res/RoutesApp";
 
+
+
+            try{
+                Location myLocation = getLastKnownLocation();
+                myPosition = new LatLng(myLocation.getLatitude(), myLocation.getLongitude());
+
+            }
+            catch (NullPointerException e){
+
+        }
         try {
             flickrRoutes = createFlickrRoutes();
         } catch (IOException e) {
@@ -114,7 +149,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     private Location getLastKnownLocation() {
-        locationManager = (LocationManager) getApplicationContext().getSystemService(LOCATION_SERVICE);
+        locationManager = (LocationManager) MapsActivity.this.getSystemService(LOCATION_SERVICE);
         List<String> providers = locationManager.getProviders(true);
         Location bestLocation = null;
         for (String provider : providers) {

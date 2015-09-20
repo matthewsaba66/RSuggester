@@ -67,5 +67,4 @@ public class GPSListener implements LocationListener {
     public void onStatusChanged(String provider, int status, Bundle extras) {
 
     }
-
 }
