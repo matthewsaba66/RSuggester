@@ -32,10 +32,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.PriorityQueue;
 
 
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback {
@@ -216,12 +218,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         } else {
             c = null;
         }
-        /*while (it2.hasNext()) {
-            pair = (Map.Entry) it2.next();
-            Double[] coo = (Double[]) pair.getValue();
-            BitmapDescriptor bitmapDescriptor = BitmapDescriptorFactory.defaultMarker(hue);
-            map.addMarker(new MarkerOptions().position(new LatLng(coo[0], coo[1])).title((String) pair.getKey()).icon(bitmapDescriptor));
-        }*/
+
         if (c != null) {
             LatLng test = new LatLng(c[0], c[1]);
             return test;
@@ -233,10 +230,26 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     @Override
     public void onMapReady(GoogleMap map) {
         int nearest = getNearestRoute();
+        List<Integer> nearests = getNearestRoutes(5);
+
+
+        mkRoute(nearest);
+
+        for (int i : nearests){
+            mkRoute(i);
+        }
+
+        map.moveCamera(CameraUpdateFactory.newLatLng(myPosition));
+    }
+
+
+
+    private void mkRoute(int nearest) {
         FlickrRoute route0 = flickrRoutes.get(nearest);
         System.out.println(flickrRoutes.get(nearest).toString());
         List<float[]> intermediates = route0.getIntermediates();
         List<LatLng> positions = new ArrayList<LatLng>();
+
         int routeSize = intermediates.size();
         for (int i = 0; i < routeSize; i++) {
             System.out.println((double) intermediates.get(i)[0] + "\t" + (double) intermediates.get(i)[1]);
@@ -251,40 +264,72 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             positions.add(tappa);
         }
 
-        //LatLng sestaTappa = addYelpResult("landmarks", terzaTappa.latitude, terzaTappa.longitude, "orange", "piedi");
-        //LatLng primaTappa = addYelpResult("landmarks", sestaTappa.latitude, sestaTappa.longitude, "red", "piedi");
-
-        //LatLng settimaTappa = addYelpResult("galleries", "yellow", "piedi");
-        //LatLng ottavaTappa = addYelpResult("gardens", "yellow", "piedi");
-        //LatLng nonaTappa = addYelpResult("nightlife", primaTappa.latitude, primaTappa.longitude, "blue", "piedi");
-        //CI STA UN PROBLEMA: SE MANCA UNA DI QUESTE TAPPE SFANCULA TUTTO E MI DA ERRORE. BISOGNA CONTROLLARE QUESTA SITUAZIONE:
-        //SE � NULL ALLORA SI TROVA UN'ALTRA COSA DA FARE O SI PASSA OLTRE.
+        percorso(myPosition, positions.get(0), "green");
         for (int i = 0; i < routeSize-1; i++) {
             percorso(positions.get(i), positions.get(i+1), "green");
         }
-        //percorso(terzaTappa, sestaTappa, "blue");
-        //percorso(sestaTappa, primaTappa, "yellow");
-
-        map.moveCamera(CameraUpdateFactory.newLatLng(myPosition));
     }
 
-    //si puù migliorare con calcolo distanza (manhattan) oppure distanza guidata o a piedi
+    private class Pair {
+        public Double delta;
+        public Integer index;
+
+        public Pair(Double delta, Integer index) {
+            this.delta = delta;
+            this.index = index;
+        }
+    };
+
+
+    private List<Integer> getNearestRoutes(int topK) {
+        Location location = getLastKnownLocation();
+        double latitude = location.getLatitude();
+        double longitude = location.getLongitude();
+        List<Integer> top = new ArrayList<Integer>();
+        PriorityQueue<Pair> queue = new PriorityQueue<Pair>(topK, new Comparator<Pair>() {
+            public int compare(Pair p1, Pair p2) {
+                return -(p1.delta.compareTo(p2.delta));
+            }
+        });
+        for (FlickrRoute f : flickrRoutes){
+            double delta = Math.abs(latitude - f.getIntermediates().get(0)[0]) + Math.abs(longitude - f.getIntermediates().get(0)[1]);
+            Integer index = flickrRoutes.indexOf(f);
+            Pair p = new Pair(delta, index);
+            queue.add(p);
+            if (queue.size() > topK) {
+                queue.remove();
+            }
+        }
+        List<Pair> topKPairs = new ArrayList<Pair>();
+        while (! queue.isEmpty()) {
+            topKPairs.add(queue.remove());
+        }
+        for (Pair p1 : topKPairs){
+            top.add(p1.index);
+            System.out.println("index: " + p1.index + " delta: " + p1.delta);
+        }
+        return top;
+    }
+
+
+
+
+
     private int getNearestRoute() {
         //prendo la mia posizione
         Location location = getLastKnownLocation();
-        int index = 0;
+        int index = -1;
         double latitude = location.getLatitude();
         double longitude = location.getLongitude();
-        double deltaMinLat = 999999999;
-        double deltaMinLon = 999999999;
+        double deltaMin = 999999999;
         for (FlickrRoute f : flickrRoutes){
-            if ((Math.abs(latitude - f.getIntermediates().get(0)[0]) < deltaMinLat) && (Math.abs(longitude - f.getIntermediates().get(0)[1]) < deltaMinLon)){
-                deltaMinLat = Math.abs(latitude - f.getIntermediates().get(0)[0]);
-                deltaMinLon = Math.abs(longitude - f.getIntermediates().get(0)[1]);
+            double delta = Math.abs(latitude - f.getIntermediates().get(0)[0]) + Math.abs(longitude - f.getIntermediates().get(0)[1]);
+            if(delta < deltaMin){
+                deltaMin = delta;
                 index = flickrRoutes.indexOf(f);
             }
         }
-        System.out.println("index: "+ index);
+        System.out.println("index: "+ index + " delta: "+ deltaMin);
         return index;
     }
 
@@ -329,64 +374,3 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
 }
-
-
-
-
-
-
-
-/*
-    @Override
-    public void onMapReady(GoogleMap map) {
-        FlickrRoute route0 = flickrRoutes.get(0);
-        List<float[]> intermediates = route0.getIntermediates();
-        System.out.println( (double)intermediates.get(0)[0] + "\t" + (double)intermediates.get(0)[1]);
-        System.out.println( (double)intermediates.get(1)[0] + "\t" + (double)intermediates.get(1)[1]);
-        System.out.println( (double)intermediates.get(2)[0] + "\t" + (double)intermediates.get(2)[1]);
-        System.out.println( (double)intermediates.get(3)[0] + "\t" + (double)intermediates.get(3)[1]);
-
-        LatLng quartaTappa = addYelpResult("landmarks,churches,parks", (double) intermediates.get(0)[0], (double) intermediates.get(0)[1], "yellow", "piedi");
-        if (quartaTappa == null)    {
-            quartaTappa = addYelpResult("andmarks,churches,parks", (double) intermediates.get(0)[0], (double) intermediates.get(0)[1], "yellow", "bicicletta");
-        }
-        if (quartaTappa == null)    {
-            quartaTappa = addYelpResult("landmarks,churches,parks", (double) intermediates.get(0)[0], (double) intermediates.get(0)[1], "yellow", "auto");
-        }
-        LatLng secondaTappa = addYelpResult("landmarks,churches,parks", (double)intermediates.get(1)[0], (double)intermediates.get(1)[1], "violet", "piedi");
-        if (secondaTappa == null)    {
-            secondaTappa = addYelpResult("landmarks,churches,parks", (double) intermediates.get(1)[0], (double) intermediates.get(1)[1], "violet", "bicicletta");
-        }
-        if (secondaTappa == null)    {
-            secondaTappa = addYelpResult("landmarks,churches,parks", (double) intermediates.get(1)[0], (double) intermediates.get(1)[1], "violet", "auto");
-        }
-        LatLng quintaTappa = addYelpResult("landmarks,churches,parks",(double)intermediates.get(2)[0], (double)intermediates.get(2)[1], "red", "piedi");
-        if (quintaTappa == null)    {
-            quintaTappa = addYelpResult("landmarks,churches,parks", (double) intermediates.get(2)[0], (double) intermediates.get(2)[1], "red", "bicicletta");
-        }
-        if (quintaTappa == null)    {
-            quintaTappa = addYelpResult("landmarks,churches,parks", (double) intermediates.get(2)[0], (double) intermediates.get(2)[1], "red", "auto");
-        }
-        LatLng terzaTappa = addYelpResult("landmarks,churches,parks",(double)intermediates.get(3)[0], (double)intermediates.get(3)[1], "orange", "piedi");
-        if (terzaTappa == null)    {
-            terzaTappa = addYelpResult("landmarks,churches,parks", (double) intermediates.get(3)[0], (double) intermediates.get(3)[1], "orange", "bicicletta");
-        }
-        if (terzaTappa == null)    {
-            terzaTappa = addYelpResult("landmarks,churches,parks", (double) intermediates.get(3)[0], (double) intermediates.get(3)[1], "orange", "auto");
-        }
-        //LatLng sestaTappa = addYelpResult("landmarks", terzaTappa.latitude, terzaTappa.longitude, "orange", "piedi");
-        //LatLng primaTappa = addYelpResult("landmarks", sestaTappa.latitude, sestaTappa.longitude, "red", "piedi");
-
-        //LatLng settimaTappa = addYelpResult("galleries", "yellow", "piedi");
-        //LatLng ottavaTappa = addYelpResult("gardens", "yellow", "piedi");
-        //LatLng nonaTappa = addYelpResult("nightlife", primaTappa.latitude, primaTappa.longitude, "blue", "piedi");
-        //CI STA UN PROBLEMA: SE MANCA UNA DI QUESTE TAPPE SFANCULA TUTTO E MI DA ERRORE. BISOGNA CONTROLLARE QUESTA SITUAZIONE:
-        //SE � NULL ALLORA SI TROVA UN'ALTRA COSA DA FARE O SI PASSA OLTRE.
-        percorso(quartaTappa, secondaTappa, "green");
-        percorso(secondaTappa, quintaTappa, "cyan");
-        percorso(quintaTappa, terzaTappa, "black");
-        //percorso(terzaTappa, sestaTappa, "blue");
-        //percorso(sestaTappa, primaTappa, "yellow");
-
-        map.moveCamera(CameraUpdateFactory.newLatLng(myPosition));
-    }*/
