@@ -1,7 +1,6 @@
 package com.example.matteo.rsuggester;
 
 import android.app.AlertDialog;
-import android.app.Dialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -11,10 +10,10 @@ import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.StrictMode;
-import android.provider.Settings;
 import android.support.v4.app.FragmentActivity;
 import android.widget.TextView;
 
+import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
@@ -167,6 +166,113 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         return bestLocation;
     }
 
+
+    @Override
+    public void onMapReady(GoogleMap map) {
+        //int nearest = getNearestRoute(); //solo per un percorso singolo
+        List<Integer> nearests = getNearestRoutes(3);
+
+
+        mkRoute(nearests.get(0), "green");
+        mkRoute(nearests.get(1), "red");
+        mkRoute(nearests.get(2), "blue");
+
+
+        map.moveCamera(CameraUpdateFactory.newLatLng(myPosition));
+        CameraUpdate zoom=CameraUpdateFactory.zoomTo(12);
+        map.animateCamera(zoom);
+    }
+
+
+
+
+
+    private class Pair {
+        public Double delta;
+        public Integer index;
+
+        public Pair(Double delta, Integer index) {
+            this.delta = delta;
+            this.index = index;
+        }
+    };
+
+
+    private List<Integer> getNearestRoutes(int topK) {
+        Location location = getLastKnownLocation();
+        double latitude = location.getLatitude();
+        double longitude = location.getLongitude();
+        List<Integer> top = new ArrayList<Integer>();
+        PriorityQueue<Pair> queue = new PriorityQueue<Pair>(topK, new Comparator<Pair>() {
+            public int compare(Pair p1, Pair p2) {
+                return -(p1.delta.compareTo(p2.delta));
+            }
+        });
+        for (FlickrRoute f : flickrRoutes){
+            double delta = Math.abs(latitude - f.getIntermediates().get(0)[0]) + Math.abs(longitude - f.getIntermediates().get(0)[1]);
+            Integer index = flickrRoutes.indexOf(f);
+            Pair p = new Pair(delta, index);
+            queue.add(p);
+            if (queue.size() > topK) {
+                queue.remove();
+            }
+        }
+        List<Pair> topKPairs = new ArrayList<Pair>();
+        while (! queue.isEmpty()) {
+            topKPairs.add(queue.remove());
+        }
+        for (Pair p1 : topKPairs){
+            top.add(p1.index);
+            System.out.println("index: " + p1.index + " delta: " + p1.delta);
+        }
+        return top;
+    }
+
+    private int getNearestRoute() {
+        //prendo la mia posizione
+        Location location = getLastKnownLocation();
+        int index = -1;
+        double latitude = location.getLatitude();
+        double longitude = location.getLongitude();
+        double deltaMin = 999999999;
+        for (FlickrRoute f : flickrRoutes){
+            double delta = Math.abs(latitude - f.getIntermediates().get(0)[0]) + Math.abs(longitude - f.getIntermediates().get(0)[1]);
+            if(delta < deltaMin){
+                deltaMin = delta;
+                index = flickrRoutes.indexOf(f);
+            }
+        }
+        System.out.println("index: "+ index + " delta: "+ deltaMin);
+        return index;
+    }
+
+    private void mkRoute(int nearest, String color) {
+        FlickrRoute route0 = flickrRoutes.get(nearest);
+        System.out.println(flickrRoutes.get(nearest).toString());
+        List<float[]> intermediates = route0.getIntermediates();
+        List<LatLng> positions = new ArrayList<LatLng>();
+
+        int routeSize = intermediates.size();
+        for (int i = 0; i < routeSize; i++) {
+            System.out.println((double) intermediates.get(i)[0] + "\t" + (double) intermediates.get(i)[1]);
+
+            LatLng tappa = addYelpResult("landmarks,parks", (double) intermediates.get(i)[0], (double) intermediates.get(i)[1], color, "piedi");
+            if (tappa == null) {
+                tappa = addYelpResult("landmarks,parks", (double) intermediates.get(i)[0], (double) intermediates.get(i)[1], color, "bicicletta");
+            }
+            if (tappa == null) {
+                tappa = addYelpResult("landmarks,parks", (double) intermediates.get(i)[0], (double) intermediates.get(i)[1], color, "auto");
+            }
+            positions.add(tappa);
+        }
+
+        percorso(myPosition, positions.get(0), color);
+        for (int i = 0; i < routeSize-1; i++) {
+            percorso(positions.get(i), positions.get(i+1), color);
+        }
+    }
+
+
     public LatLng addYelpResult(String local, Double latitude, Double longitude, String color, String mezzo) {
         // BISOGNA METTERE DOPPIA SCELTA SE CON LOCALIZZAZIONE O NO ... I METODI SONO GIA FATTI
         Float hue = null;
@@ -227,111 +333,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         }
     }
 
-    @Override
-    public void onMapReady(GoogleMap map) {
-        int nearest = getNearestRoute();
-        List<Integer> nearests = getNearestRoutes(5);
-
-
-        mkRoute(nearest);
-
-        for (int i : nearests){
-            mkRoute(i);
-        }
-
-        map.moveCamera(CameraUpdateFactory.newLatLng(myPosition));
-    }
-
-
-
-    private void mkRoute(int nearest) {
-        FlickrRoute route0 = flickrRoutes.get(nearest);
-        System.out.println(flickrRoutes.get(nearest).toString());
-        List<float[]> intermediates = route0.getIntermediates();
-        List<LatLng> positions = new ArrayList<LatLng>();
-
-        int routeSize = intermediates.size();
-        for (int i = 0; i < routeSize; i++) {
-            System.out.println((double) intermediates.get(i)[0] + "\t" + (double) intermediates.get(i)[1]);
-
-            LatLng tappa = addYelpResult("landmarks,parks", (double) intermediates.get(i)[0], (double) intermediates.get(i)[1], "red", "piedi");
-            if (tappa == null) {
-                tappa = addYelpResult("landmarks,parks", (double) intermediates.get(i)[0], (double) intermediates.get(i)[1], "red", "bicicletta");
-            }
-            if (tappa == null) {
-                tappa = addYelpResult("landmarks,parks", (double) intermediates.get(i)[0], (double) intermediates.get(i)[1], "red", "auto");
-            }
-            positions.add(tappa);
-        }
-
-        percorso(myPosition, positions.get(0), "green");
-        for (int i = 0; i < routeSize-1; i++) {
-            percorso(positions.get(i), positions.get(i+1), "green");
-        }
-    }
-
-    private class Pair {
-        public Double delta;
-        public Integer index;
-
-        public Pair(Double delta, Integer index) {
-            this.delta = delta;
-            this.index = index;
-        }
-    };
-
-
-    private List<Integer> getNearestRoutes(int topK) {
-        Location location = getLastKnownLocation();
-        double latitude = location.getLatitude();
-        double longitude = location.getLongitude();
-        List<Integer> top = new ArrayList<Integer>();
-        PriorityQueue<Pair> queue = new PriorityQueue<Pair>(topK, new Comparator<Pair>() {
-            public int compare(Pair p1, Pair p2) {
-                return -(p1.delta.compareTo(p2.delta));
-            }
-        });
-        for (FlickrRoute f : flickrRoutes){
-            double delta = Math.abs(latitude - f.getIntermediates().get(0)[0]) + Math.abs(longitude - f.getIntermediates().get(0)[1]);
-            Integer index = flickrRoutes.indexOf(f);
-            Pair p = new Pair(delta, index);
-            queue.add(p);
-            if (queue.size() > topK) {
-                queue.remove();
-            }
-        }
-        List<Pair> topKPairs = new ArrayList<Pair>();
-        while (! queue.isEmpty()) {
-            topKPairs.add(queue.remove());
-        }
-        for (Pair p1 : topKPairs){
-            top.add(p1.index);
-            System.out.println("index: " + p1.index + " delta: " + p1.delta);
-        }
-        return top;
-    }
-
-
-
-
-
-    private int getNearestRoute() {
-        //prendo la mia posizione
-        Location location = getLastKnownLocation();
-        int index = -1;
-        double latitude = location.getLatitude();
-        double longitude = location.getLongitude();
-        double deltaMin = 999999999;
-        for (FlickrRoute f : flickrRoutes){
-            double delta = Math.abs(latitude - f.getIntermediates().get(0)[0]) + Math.abs(longitude - f.getIntermediates().get(0)[1]);
-            if(delta < deltaMin){
-                deltaMin = delta;
-                index = flickrRoutes.indexOf(f);
-            }
-        }
-        System.out.println("index: "+ index + " delta: "+ deltaMin);
-        return index;
-    }
 
     public void percorso(LatLng partenza, LatLng arrivo, String color) {
         int hue = 0;
