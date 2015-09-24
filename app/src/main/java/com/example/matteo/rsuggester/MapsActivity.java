@@ -11,7 +11,6 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.StrictMode;
 import android.support.v4.app.FragmentActivity;
-import android.widget.TextView;
 
 import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
@@ -43,9 +42,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     GoogleMap map;
     LatLng myPosition;
-    private TextView output;
     private LocationManager locationManager;
-    private String bestProvider;
     private List<FlickrRoute> flickrRoutes;
     //final String flickrRoutesPath = "app/src/main/res/RoutesApp";
 
@@ -57,7 +54,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         if( !locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ) {
             AlertDialog.Builder builder = new AlertDialog.Builder(MapsActivity.this);
             builder.setTitle("GPS not found");  // GPS not found
-            builder.setMessage("Enable?"); // Want to enable?
+            builder.setMessage("Enable it?"); // Want to enable?
             builder.setPositiveButton("yes", new DialogInterface.OnClickListener() {
                 public void onClick(DialogInterface dialogInterface, int i) {
                     startActivity(new Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS));
@@ -88,18 +85,14 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         map.setMyLocationEnabled(true);
         map.getUiSettings().setZoomControlsEnabled(true);
         map.setMyLocationEnabled(true);
-        LocationManager mLocationManager;
 
 
 
-            try{
-                Location myLocation = getLastKnownLocation();
-                myPosition = new LatLng(myLocation.getLatitude(), myLocation.getLongitude());
 
-            }
-            catch (NullPointerException e){
+        Location myLocation = getLastKnownLocation();
+        myPosition = new LatLng(myLocation.getLatitude(), myLocation.getLongitude());
 
-        }
+
         try {
             flickrRoutes = createFlickrRoutes();
         } catch (IOException e) {
@@ -108,7 +101,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     private List<FlickrRoute> createFlickrRoutes() throws IOException {
-        List<FlickrRoute> flickrRoutes = new ArrayList<FlickrRoute>();
+        List<FlickrRoute> flickrRoutes = new ArrayList<>();
         String[] f = getAssets().list("RoutesApp");
         for(String f1 : f){
             System.out.println(f1);
@@ -117,11 +110,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 System.out.println(f2);
                 FlickrRoute route = new FlickrRoute();
                 //apri il file
-                List<float[]> intermediates = new ArrayList<float[]>();
+                List<float[]> intermediates = new ArrayList<>();
                 //leggi il file
                 InputStream is = getAssets().open("RoutesApp/"+f1+"/"+f2);
                 BufferedReader br = new BufferedReader(new InputStreamReader(is));
-                String line = null;
+                String line;
                 while ((line = br.readLine()) != null) {
                     System.out.println(line);
                     //aggiungi a rlista un array di float con le coordinate lette
@@ -167,18 +160,16 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     @Override
     public void onMapReady(GoogleMap map) {
-        //int nearest = getNearestRoute(); //solo per un percorso singolo
-        List<Integer> nearests = getNearestRoutes(3);
-
-
-        mkRoute(nearests.get(0), "green");
-        mkRoute(nearests.get(1), "red");
-        mkRoute(nearests.get(2), "blue");
-
 
         map.moveCamera(CameraUpdateFactory.newLatLng(myPosition));
         CameraUpdate zoom=CameraUpdateFactory.zoomTo(12);
         map.animateCamera(zoom);
+        //int nearest = getNearestRoute(); //solo per un percorso singolo
+        List<Integer> nearests = getNearestRoutes(3);
+        mkRoute(nearests.get(0), "green");
+        mkRoute(nearests.get(1), "red");
+        mkRoute(nearests.get(2), "blue");
+
     }
 
 
@@ -193,15 +184,15 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             this.delta = delta;
             this.index = index;
         }
-    };
+    }
 
 
     private List<Integer> getNearestRoutes(int topK) {
         Location location = getLastKnownLocation();
         double latitude = location.getLatitude();
         double longitude = location.getLongitude();
-        List<Integer> top = new ArrayList<Integer>();
-        PriorityQueue<Pair> queue = new PriorityQueue<Pair>(topK, new Comparator<Pair>() {
+        List<Integer> top = new ArrayList<>();
+        PriorityQueue<Pair> queue = new PriorityQueue<>(topK, new Comparator<Pair>() {
             public int compare(Pair p1, Pair p2) {
                 return -(p1.delta.compareTo(p2.delta));
             }
@@ -215,7 +206,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 queue.remove();
             }
         }
-        List<Pair> topKPairs = new ArrayList<Pair>();
+        List<Pair> topKPairs = new ArrayList<>();
         while (! queue.isEmpty()) {
             topKPairs.add(queue.remove());
         }
@@ -248,7 +239,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         FlickrRoute route0 = flickrRoutes.get(nearest);
         System.out.println(flickrRoutes.get(nearest).toString());
         List<float[]> intermediates = route0.getIntermediates();
-        List<LatLng> positions = new ArrayList<LatLng>();
+        List<LatLng> positions = new ArrayList<>();
 
         int routeSize = intermediates.size();
         for (int i = 0; i < routeSize; i++) {
@@ -274,7 +265,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     public LatLng addYelpResult(String local, Double latitude, Double longitude, String color, String mezzo) {
         // BISOGNA METTERE DOPPIA SCELTA SE CON LOCALIZZAZIONE O NO ... I METODI SONO GIA FATTI
         Float hue = null;
-        String[] colors = {"red", "green", "violet", "azure", "blue", "cyan", "magenta", "orange", "rose", "yellow"};
+       // String[] colors = {"red", "green", "violet", "azure", "blue", "cyan", "magenta", "orange", "rose", "yellow"};
         switch (color) {
             case "red":
                 hue = BitmapDescriptorFactory.HUE_RED;
@@ -310,9 +301,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         }
         HashMap place = Yelp.searchLL(local, latitude, longitude, mezzo);
         Iterator it2 = place.entrySet().iterator();
-        Double[] c = new Double[2];
+        Double[] c;
 
-        Map.Entry pair = null;
+        Map.Entry pair;
         if (it2.hasNext()) {
             pair = (Map.Entry) it2.next();
             c = (Double[]) pair.getValue();            Double[] coo = (Double[]) pair.getValue();
@@ -334,7 +325,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     public void percorso(LatLng partenza, LatLng arrivo, String color) {
         int hue = 0;
-        String[] colors = {"red", "green", "violet", "azure", "blue", "cyan", "magenta", "orange", "rose", "yellow"};
         switch (color) {
             case "red":
                 hue = Color.RED;
