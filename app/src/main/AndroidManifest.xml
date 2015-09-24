@@ -20,7 +20,7 @@
 
     <application
         android:allowBackup="true"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@mipmap/rome"
         android:label="@string/app_name"
         android:theme="@style/AppTheme" >
 
@@ -38,7 +38,7 @@
 
         <activity
             android:name=".MapsActivity"
-            android:label="@string/title_activity_maps" >
+            android:label="RSuggester" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
